@@ -14,6 +14,7 @@ export default function PhysicsScene({ data }: { data: CaptureResponse }) {
   const activatedRef = useRef<Set<string>>(new Set());
   const shatteredRef = useRef(false);
   const deviceGravityCleanupRef = useRef<(() => void) | null>(null);
+  const deviceMotionCleanupRef = useRef<(() => void) | null>(null);
   const desktopGravityCleanupRef = useRef<(() => void) | null>(null);
   const touchAttractionCleanupRef = useRef<(() => void) | null>(null);
   const [shattered, setShattered] = useState(false);
@@ -60,10 +61,13 @@ export default function PhysicsScene({ data }: { data: CaptureResponse }) {
     let mounted = true;
 
     async function init() {
+      // Guard against double initialization (React re-render during async import)
+      if (worldRef.current) return;
+
       const physics = await import("@/lib/physics");
       physicsRef.current = physics;
 
-      if (!mounted || !containerRef.current) return;
+      if (!mounted || !containerRef.current || worldRef.current) return;
 
       const world = physics.createPhysicsWorld(
         { width: window.innerWidth, height: window.innerHeight },
@@ -121,23 +125,18 @@ export default function PhysicsScene({ data }: { data: CaptureResponse }) {
       const onGravityStatus = (_status: GravityStatus) => {};
 
       // Gravity input strategy:
-      // - On iOS: show permission button, start desktop gravity as fallback.
-      //   When permission granted, stop desktop gravity and start sensor.
-      // - On Android / desktop Safari: try sensor, fall back to desktop if
-      //   no events arrive within 2 seconds.
-      // - On other desktop browsers: desktop gravity only (keyboard + mouse-edge).
+      // - iOS: zero gravity until permission granted, then sensor + motion.
+      // - Android: try sensor immediately (snaps on first reading) + motion.
+      //   Desktop gravity as brief fallback until sensor fires.
+      // - Desktop: keyboard + mouse-edge only.
       if (physics.needsDeviceOrientationPermission()) {
-        // iOS: need user gesture to request permission
+        // iOS: zero gravity until permission — bodies float after shatter
+        world.engine.gravity.x = 0;
+        world.engine.gravity.y = 0;
         setNeedsPermission(true);
         onGravityStatus({ type: "waiting-permission" });
-        // Start desktop gravity as fallback until permission is granted
-        desktopGravityCleanupRef.current = physics.startDesktopGravity(
-          world,
-          onGravityStatus
-        );
       } else if (typeof window.DeviceOrientationEvent !== "undefined") {
-        // Android / macOS Safari: try sensor, detect if it actually fires
-        // Start desktop gravity immediately as fallback
+        // Android: start sensor immediately (first reading snaps gravity)
         desktopGravityCleanupRef.current = physics.startDesktopGravity(
           world,
           onGravityStatus
@@ -147,15 +146,14 @@ export default function PhysicsScene({ data }: { data: CaptureResponse }) {
           (status) => {
             onGravityStatus(status);
             if (status.type === "active") {
-              // Sensor is working -- stop desktop gravity to avoid conflicts
               if (desktopGravityCleanupRef.current) {
                 desktopGravityCleanupRef.current();
                 desktopGravityCleanupRef.current = null;
               }
             }
-            // "no-sensor" callback: desktop gravity is already running, nothing to do
           }
         );
+        deviceMotionCleanupRef.current = physics.startDeviceMotion(world);
       } else {
         onGravityStatus({ type: "no-sensor" });
         desktopGravityCleanupRef.current = physics.startDesktopGravity(
@@ -189,6 +187,10 @@ export default function PhysicsScene({ data }: { data: CaptureResponse }) {
         touchAttractionCleanupRef.current();
         touchAttractionCleanupRef.current = null;
       }
+      if (deviceMotionCleanupRef.current) {
+        deviceMotionCleanupRef.current();
+        deviceMotionCleanupRef.current = null;
+      }
       if (deviceGravityCleanupRef.current) {
         deviceGravityCleanupRef.current();
         deviceGravityCleanupRef.current = null;
@@ -215,13 +217,13 @@ export default function PhysicsScene({ data }: { data: CaptureResponse }) {
 
     const granted = await physics.requestDeviceOrientationPermission();
     if (granted) {
-      // Stop desktop gravity -- sensor will take over
       if (desktopGravityCleanupRef.current) {
         desktopGravityCleanupRef.current();
         desktopGravityCleanupRef.current = null;
       }
       const onStatus = (_status: GravityStatus) => {};
       deviceGravityCleanupRef.current = physics.startDeviceGravity(world, onStatus);
+      deviceMotionCleanupRef.current = physics.startDeviceMotion(world);
       setNeedsPermission(false);
     }
   }, []);

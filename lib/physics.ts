@@ -151,6 +151,9 @@ export function createElementBody(
   element: CapturedElement,
   world: PhysicsWorld
 ): Matter.Body {
+  // Guard: skip if body with this ID already exists
+  if (world.bodies.has(element.id)) return world.bodies.get(element.id)!;
+
   const body = Bodies.rectangle(
     element.x + element.width / 2,
     element.y + element.height / 2,
@@ -231,21 +234,28 @@ export function clampBody(world: PhysicsWorld, elementId: string, x: number, y: 
 
 export function needsDeviceOrientationPermission(): boolean {
   return (
-    typeof DeviceOrientationEvent !== "undefined" &&
-    typeof (DeviceOrientationEvent as any).requestPermission === "function"
+    (typeof DeviceOrientationEvent !== "undefined" &&
+      typeof (DeviceOrientationEvent as any).requestPermission === "function") ||
+    (typeof DeviceMotionEvent !== "undefined" &&
+      typeof (DeviceMotionEvent as any).requestPermission === "function")
   );
 }
 
 export async function requestDeviceOrientationPermission(): Promise<boolean> {
-  if (needsDeviceOrientationPermission()) {
-    try {
-      const result = await (DeviceOrientationEvent as any).requestPermission();
-      return result === "granted";
-    } catch {
-      return false;
-    }
+  const promises: Promise<string>[] = [];
+  if (typeof (DeviceOrientationEvent as any).requestPermission === "function") {
+    promises.push((DeviceOrientationEvent as any).requestPermission());
   }
-  return true;
+  if (typeof (DeviceMotionEvent as any).requestPermission === "function") {
+    promises.push((DeviceMotionEvent as any).requestPermission());
+  }
+  if (promises.length === 0) return true;
+  try {
+    const results = await Promise.all(promises);
+    return results.every((r) => r === "granted");
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -260,8 +270,9 @@ export function startDeviceGravity(
   onStatus?: GravityStatusCallback
 ): () => void {
   let smoothX = 0;
-  let smoothY = 1;
+  let smoothY = 0;
   let receivedEvents = false;
+  let firstReading = true;
   const ALPHA = 0.08; // lower = heavier feel / more inertia
   const DEG = Math.PI / 180;
 
@@ -270,23 +281,24 @@ export function startDeviceGravity(
 
     receivedEvents = true;
 
-    // beta: front-back tilt (-180..180), gamma: left-right tilt (-90..90)
-    // Phone held upright in portrait: beta ~90, gamma ~0
-    // We want gravity to point "down" relative to tilt:
-    //   - gamma controls x-axis gravity (tilt left/right)
-    //   - beta controls y-axis gravity (tilt forward/back)
     const gamma = event.gamma;
     const beta = event.beta;
 
-    // gamma: left/right tilt → x-axis gravity. sin maps -90..90 to -1..1
     const gx = Math.sin(gamma * DEG);
-    // beta=90 when upright. cos(beta-90) gives:
-    //   upright (90) → 1, flat face-up (0) → 0, tilted back (-90) → -1
     const gy = Math.cos((beta - 90) * DEG);
 
-    // Exponential moving average (low-pass filter)
-    smoothX += (Math.max(-1, Math.min(1, gx)) - smoothX) * ALPHA;
-    smoothY += (Math.max(-1, Math.min(1, gy)) - smoothY) * ALPHA;
+    const clampedGx = Math.max(-1, Math.min(1, gx));
+    const clampedGy = Math.max(-1, Math.min(1, gy));
+
+    if (firstReading) {
+      // Snap immediately on first reading — no lag from EMA warmup
+      smoothX = clampedGx;
+      smoothY = clampedGy;
+      firstReading = false;
+    } else {
+      smoothX += (clampedGx - smoothX) * ALPHA;
+      smoothY += (clampedGy - smoothY) * ALPHA;
+    }
 
     world.engine.gravity.x = smoothX;
     world.engine.gravity.y = smoothY;
@@ -315,6 +327,47 @@ export function startDeviceGravity(
     window.removeEventListener("deviceorientation", handler, true);
     world.engine.gravity.x = 0;
     world.engine.gravity.y = 1;
+  };
+}
+
+/**
+ * Apply inertial forces from device acceleration (shaking/jerking the phone).
+ * Uses DeviceMotionEvent.acceleration (gravity-removed).
+ * When the phone jerks right, bodies resist and drift left (Newton's 1st law).
+ */
+export function startDeviceMotion(
+  world: PhysicsWorld,
+): () => void {
+  const INERTIA_SCALE = 0.00025;
+  const THRESHOLD = 0.5; // ignore micro-vibrations (m/s²)
+  const MAX_ACC = 30; // cap extreme values
+
+  const clamp = (v: number, max: number) => Math.max(-max, Math.min(max, v));
+
+  const handler = (event: DeviceMotionEvent) => {
+    const acc = event.acceleration;
+    if (!acc || acc.x == null || acc.y == null) return;
+
+    if (Math.abs(acc.x) < THRESHOLD && Math.abs(acc.y) < THRESHOLD) return;
+
+    const ax = clamp(acc.x, MAX_ACC);
+    const ay = clamp(acc.y, MAX_ACC);
+
+    // Phone accelerates right (acc.x > 0) → pseudo-force pushes bodies left (−x)
+    // Phone accelerates up (acc.y > 0) → pseudo-force pushes bodies down (+screen y)
+    for (const [, body] of world.bodies) {
+      if (body.isStatic) continue;
+      Body.applyForce(body, body.position, {
+        x: -ax * INERTIA_SCALE * body.mass,
+        y: ay * INERTIA_SCALE * body.mass,
+      });
+    }
+  };
+
+  window.addEventListener("devicemotion", handler, true);
+
+  return () => {
+    window.removeEventListener("devicemotion", handler, true);
   };
 }
 
