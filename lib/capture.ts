@@ -1,7 +1,10 @@
 import puppeteer, { Browser } from "puppeteer-core";
-import chromium from "@sparticuz/chromium";
+import chromium from "@sparticuz/chromium-min";
 import { filterElements } from "./element-filter";
 import type { CapturedElement, CaptureResponse } from "./types";
+
+const CHROMIUM_REMOTE_URL =
+  "https://github.com/nichochar/chromium-brotli/releases/download/v143.0.0/chromium-v143.0.0-pack.tar";
 
 let browserInstance: Browser | null = null;
 
@@ -15,7 +18,7 @@ async function getBrowser(): Promise<Browser> {
   if (isVercel) {
     browserInstance = await puppeteer.launch({
       args: chromium.args,
-      executablePath: await chromium.executablePath(),
+      executablePath: await chromium.executablePath(CHROMIUM_REMOTE_URL),
       headless: true,
     });
   } else {
