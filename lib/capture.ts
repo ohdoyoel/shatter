@@ -1,4 +1,5 @@
-import puppeteer, { Browser } from "puppeteer";
+import puppeteer, { Browser } from "puppeteer-core";
+import chromium from "@sparticuz/chromium";
 import { filterElements } from "./element-filter";
 import type { CapturedElement, CaptureResponse } from "./types";
 
@@ -9,16 +10,41 @@ async function getBrowser(): Promise<Browser> {
     return browserInstance;
   }
 
-  browserInstance = await puppeteer.launch({
-    headless: true,
-    args: [
-      "--no-sandbox",
-      "--disable-setuid-sandbox",
-      "--disable-dev-shm-usage",
-      "--disable-gpu",
-      "--disable-blink-features=AutomationControlled",
-    ],
-  });
+  const isVercel = !!process.env.VERCEL;
+
+  if (isVercel) {
+    browserInstance = await puppeteer.launch({
+      args: chromium.args,
+      executablePath: await chromium.executablePath(),
+      headless: true,
+    });
+  } else {
+    // Local development: use system Chrome
+    const { execSync } = await import("child_process");
+    let localChrome = "";
+    try {
+      localChrome = execSync(
+        'find /Applications -name "Google Chrome" -type f -path "*/MacOS/*" 2>/dev/null | head -1'
+      )
+        .toString()
+        .trim();
+    } catch {}
+    if (!localChrome) {
+      localChrome = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
+    }
+
+    browserInstance = await puppeteer.launch({
+      headless: true,
+      executablePath: localChrome,
+      args: [
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage",
+        "--disable-gpu",
+        "--disable-blink-features=AutomationControlled",
+      ],
+    });
+  }
 
   return browserInstance;
 }
