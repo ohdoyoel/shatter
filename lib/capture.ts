@@ -4,7 +4,7 @@ import { filterElements } from "./element-filter";
 import type { CapturedElement, CaptureResponse } from "./types";
 
 const CHROMIUM_REMOTE_URL =
-  "https://github.com/nichochar/chromium-brotli/releases/download/v143.0.0/chromium-v143.0.0-pack.tar";
+  "https://github.com/Sparticuz/chromium/releases/download/v143.0.4/chromium-v143.0.4-pack.x64.tar";
 
 let browserInstance: Browser | null = null;
 
