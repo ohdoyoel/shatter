@@ -16,9 +16,10 @@ export default function PhysicsScene({ data }: { data: CaptureResponse }) {
   const deviceGravityCleanupRef = useRef<(() => void) | null>(null);
   const deviceMotionCleanupRef = useRef<(() => void) | null>(null);
   const desktopGravityCleanupRef = useRef<(() => void) | null>(null);
-  const touchAttractionCleanupRef = useRef<(() => void) | null>(null);
   const [shattered, setShattered] = useState(false);
   const [needsPermission, setNeedsPermission] = useState(false);
+  const [gravityOn, setGravityOn] = useState(true);
+  const [inertiaOn, setInertiaOn] = useState(true);
 
   // Convert screenshot data URI to blob URL for efficient CSS usage
   const [bgUrl, setBgUrl] = useState<string | null>(null);
@@ -115,12 +116,6 @@ export default function PhysicsScene({ data }: { data: CaptureResponse }) {
 
       // No scroll-following walls — walls are fixed at page boundaries
 
-      // Touch/click attraction
-      touchAttractionCleanupRef.current = physics.startTouchAttraction(
-        world,
-        containerRef.current!
-      );
-
       // Gravity status callback (no-op, debug UI removed)
       const onGravityStatus = (_status: GravityStatus) => {};
 
@@ -183,10 +178,6 @@ export default function PhysicsScene({ data }: { data: CaptureResponse }) {
         window.removeEventListener("scroll", scrollHandlerRef.current);
         scrollHandlerRef.current = null;
       }
-      if (touchAttractionCleanupRef.current) {
-        touchAttractionCleanupRef.current();
-        touchAttractionCleanupRef.current = null;
-      }
       if (deviceMotionCleanupRef.current) {
         deviceMotionCleanupRef.current();
         deviceMotionCleanupRef.current = null;
@@ -228,6 +219,34 @@ export default function PhysicsScene({ data }: { data: CaptureResponse }) {
     }
   }, []);
 
+  // Toggle gravity on/off
+  useEffect(() => {
+    const world = worldRef.current;
+    if (!world) return;
+    if (gravityOn) {
+      world.engine.gravity.scale = 0.005;
+    } else {
+      world.engine.gravity.scale = 0;
+    }
+  }, [gravityOn]);
+
+  // Toggle inertia on/off
+  useEffect(() => {
+    const world = worldRef.current;
+    const physics = physicsRef.current;
+    if (!world || !physics) return;
+    if (inertiaOn) {
+      if (!deviceMotionCleanupRef.current) {
+        deviceMotionCleanupRef.current = physics.startDeviceMotion(world);
+      }
+    } else {
+      if (deviceMotionCleanupRef.current) {
+        deviceMotionCleanupRef.current();
+        deviceMotionCleanupRef.current = null;
+      }
+    }
+  }, [inertiaOn]);
+
   return (
     <div
       ref={containerRef}
@@ -253,6 +272,32 @@ export default function PhysicsScene({ data }: { data: CaptureResponse }) {
         >
           Tap to enable motion
         </button>
+      )}
+
+      {/* Toggle controls — bottom left */}
+      {shattered && (
+        <div className="fixed bottom-4 left-4 z-[9998] flex flex-col gap-2">
+          <button
+            onClick={() => setGravityOn((v) => !v)}
+            className={`px-3 py-1.5 rounded-full text-xs font-medium backdrop-blur-sm transition-colors ${
+              gravityOn
+                ? "bg-white/80 text-black"
+                : "bg-black/50 text-white/70"
+            }`}
+          >
+            Gravity {gravityOn ? "ON" : "OFF"}
+          </button>
+          <button
+            onClick={() => setInertiaOn((v) => !v)}
+            className={`px-3 py-1.5 rounded-full text-xs font-medium backdrop-blur-sm transition-colors ${
+              inertiaOn
+                ? "bg-white/80 text-black"
+                : "bg-black/50 text-white/70"
+            }`}
+          >
+            Inertia {inertiaOn ? "ON" : "OFF"}
+          </button>
+        </div>
       )}
 
       {/* Masks: appear on shatter to erase physics elements from background */}
