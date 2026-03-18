@@ -17,15 +17,9 @@ async function getBrowser(): Promise<Browser> {
 
   if (isVercel) {
     browserInstance = await puppeteer.launch({
-      args: [
-        ...chromium.args,
-        "--single-process",
-        "--disable-dev-shm-usage",
-        "--disable-gpu",
-        "--no-zygote",
-      ],
+      args: chromium.args,
       executablePath: await chromium.executablePath(CHROMIUM_REMOTE_URL),
-      headless: true,
+      headless: "shell",
     });
   } else {
     // Local development: use system Chrome
@@ -65,8 +59,7 @@ export async function captureUrl(
   deviceScaleFactor = 1
 ): Promise<CaptureResponse> {
   const browser = await getBrowser();
-  const context = await browser.createBrowserContext();
-  const page = await context.newPage();
+  const page = await browser.newPage();
 
   try {
     await page.setViewport({ ...viewport, deviceScaleFactor });
@@ -393,6 +386,5 @@ export async function captureUrl(
     };
   } finally {
     await page.close();
-    await context.close();
   }
 }
