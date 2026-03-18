@@ -1,0 +1,254 @@
+@import "tailwindcss";
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+}
+
+/* ===== Landing page animations ===== */
+
+/* Fade in from below */
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.8s ease-out both;
+}
+
+/* Staggered delays */
+.delay-100 { animation-delay: 0.1s; }
+.delay-200 { animation-delay: 0.2s; }
+.delay-300 { animation-delay: 0.3s; }
+.delay-400 { animation-delay: 0.4s; }
+.delay-500 { animation-delay: 0.5s; }
+.delay-600 { animation-delay: 0.6s; }
+.delay-700 { animation-delay: 0.7s; }
+.delay-800 { animation-delay: 0.8s; }
+.delay-1000 { animation-delay: 1.0s; }
+.delay-1200 { animation-delay: 1.2s; }
+
+/* Gentle pulse glow for the hero letter */
+@keyframes glow-pulse {
+  0%, 100% {
+    text-shadow: 0 0 8px rgba(239, 68, 68, 0.6), 0 0 24px rgba(239, 68, 68, 0.3);
+  }
+  50% {
+    text-shadow: 0 0 16px rgba(239, 68, 68, 0.8), 0 0 48px rgba(239, 68, 68, 0.5);
+  }
+}
+
+.animate-glow-pulse {
+  animation: glow-pulse 2.5s ease-in-out infinite;
+}
+
+/* ===== Shatter demo animation ===== */
+
+/* The "before" state: intact page mockup */
+@keyframes demo-intact {
+  0%, 40% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  50.1%, 90% {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-demo-intact {
+  animation: demo-intact 6s ease-in-out infinite;
+}
+
+/* Individual shard falling animations */
+@keyframes shard-fall-1 {
+  0%, 40% {
+    opacity: 0;
+    transform: translate(0, 0) rotate(0deg);
+  }
+  45% {
+    opacity: 1;
+    transform: translate(0, 0) rotate(0deg);
+  }
+  90% {
+    opacity: 1;
+    transform: translate(-30px, 120px) rotate(-18deg);
+  }
+  95%, 100% {
+    opacity: 0;
+    transform: translate(-30px, 140px) rotate(-18deg);
+  }
+}
+
+@keyframes shard-fall-2 {
+  0%, 40% {
+    opacity: 0;
+    transform: translate(0, 0) rotate(0deg);
+  }
+  45% {
+    opacity: 1;
+    transform: translate(0, 0) rotate(0deg);
+  }
+  90% {
+    opacity: 1;
+    transform: translate(20px, 100px) rotate(12deg);
+  }
+  95%, 100% {
+    opacity: 0;
+    transform: translate(20px, 120px) rotate(12deg);
+  }
+}
+
+@keyframes shard-fall-3 {
+  0%, 40% {
+    opacity: 0;
+    transform: translate(0, 0) rotate(0deg);
+  }
+  45% {
+    opacity: 1;
+    transform: translate(0, 0) rotate(0deg);
+  }
+  90% {
+    opacity: 1;
+    transform: translate(-10px, 140px) rotate(-8deg);
+  }
+  95%, 100% {
+    opacity: 0;
+    transform: translate(-10px, 160px) rotate(-8deg);
+  }
+}
+
+@keyframes shard-fall-4 {
+  0%, 40% {
+    opacity: 0;
+    transform: translate(0, 0) rotate(0deg);
+  }
+  45% {
+    opacity: 1;
+    transform: translate(0, 0) rotate(0deg);
+  }
+  90% {
+    opacity: 1;
+    transform: translate(35px, 110px) rotate(22deg);
+  }
+  95%, 100% {
+    opacity: 0;
+    transform: translate(35px, 130px) rotate(22deg);
+  }
+}
+
+@keyframes shard-fall-5 {
+  0%, 40% {
+    opacity: 0;
+    transform: translate(0, 0) rotate(0deg);
+  }
+  45% {
+    opacity: 1;
+    transform: translate(0, 0) rotate(0deg);
+  }
+  90% {
+    opacity: 1;
+    transform: translate(-25px, 90px) rotate(-15deg);
+  }
+  95%, 100% {
+    opacity: 0;
+    transform: translate(-25px, 110px) rotate(-15deg);
+  }
+}
+
+@keyframes shard-fall-6 {
+  0%, 40% {
+    opacity: 0;
+    transform: translate(0, 0) rotate(0deg);
+  }
+  45% {
+    opacity: 1;
+    transform: translate(0, 0) rotate(0deg);
+  }
+  90% {
+    opacity: 1;
+    transform: translate(15px, 130px) rotate(10deg);
+  }
+  95%, 100% {
+    opacity: 0;
+    transform: translate(15px, 150px) rotate(10deg);
+  }
+}
+
+.animate-shard-1 { animation: shard-fall-1 6s ease-in-out infinite; }
+.animate-shard-2 { animation: shard-fall-2 6s ease-in-out infinite; }
+.animate-shard-3 { animation: shard-fall-3 6s ease-in-out infinite; }
+.animate-shard-4 { animation: shard-fall-4 6s ease-in-out infinite; }
+.animate-shard-5 { animation: shard-fall-5 6s ease-in-out infinite; }
+.animate-shard-6 { animation: shard-fall-6 6s ease-in-out infinite; }
+
+/* Floating animation for feature cards */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+.animate-float-delayed {
+  animation: float 3s ease-in-out 1s infinite;
+}
+
+.animate-float-delayed-2 {
+  animation: float 3s ease-in-out 2s infinite;
+}
+
+/* Step connector line pulse */
+@keyframes line-pulse {
+  0%, 100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.animate-line-pulse {
+  animation: line-pulse 2s ease-in-out infinite;
+}
+
+/* Subtle background grid pattern */
+.bg-grid {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+
+/* Radial gradient spotlight */
+.bg-spotlight {
+  background: radial-gradient(ellipse 60% 50% at 50% 0%, rgba(239, 68, 68, 0.08) 0%, transparent 70%);
+}
+
+/* Smooth scroll behavior */
+html {
+  scroll-behavior: smooth;
+}
