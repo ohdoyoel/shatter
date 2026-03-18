@@ -35,7 +35,7 @@ export function createPhysicsWorld(
   sceneHeight?: number
 ): PhysicsWorld {
   const engine = Engine.create({
-    gravity: { x: 0, y: 1, scale: 0.001 },
+    gravity: { x: 0, y: 1, scale: 0.005 },
   });
 
   const runner = Runner.create();
@@ -110,32 +110,8 @@ export function createPhysicsWorld(
 
   World.add(engine.world, mouseConstraint);
 
-  // Touch: only intercept when actively dragging a body, else let scroll through
-  canvas.addEventListener(
-    "touchstart",
-    (e: TouchEvent) => {
-      (mouse as any).mousedown(e);
-    },
-    { passive: true }
-  );
-  canvas.addEventListener(
-    "touchmove",
-    (e: TouchEvent) => {
-      (mouse as any).mousemove(e);
-      // Block scroll only while dragging a physics body
-      if (mouseConstraint.body) {
-        e.preventDefault();
-      }
-    },
-    { passive: false }
-  );
-  canvas.addEventListener(
-    "touchend",
-    (e: TouchEvent) => {
-      (mouse as any).mouseup(e);
-    },
-    { passive: true }
-  );
+  // Touch events NOT added to mouse constraint — scroll works naturally on mobile.
+  // Touch attraction is handled separately via startTouchAttraction().
 
   // Track velocity for throwing
   let lastMousePos = { x: 0, y: 0 };
@@ -183,7 +159,7 @@ export function createElementBody(
     {
       restitution: 0.3,
       friction: 0.5,
-      frictionAir: 0.005,
+      frictionAir: 0.002,
       density: 0.5,
       label: element.id,
     }
@@ -481,6 +457,84 @@ export function startDesktopGravity(
     cancelAnimationFrame(animId);
     world.engine.gravity.x = 0;
     world.engine.gravity.y = 1;
+  };
+}
+
+/**
+ * Touch/click gravity attraction: while pressing, all bodies are pulled
+ * toward the pointer position. Works with both mouse and touch.
+ * Touch events are passive so they don't block scrolling.
+ */
+export function startTouchAttraction(
+  world: PhysicsWorld,
+  canvas: HTMLElement
+): () => void {
+  let active = false;
+  let pointerX = 0;
+  let pointerY = 0;
+  const FORCE = 0.008;
+
+  const onMouseDown = (e: MouseEvent) => {
+    active = true;
+    pointerX = e.offsetX;
+    pointerY = e.offsetY;
+  };
+  const onMouseMove = (e: MouseEvent) => {
+    if (!active) return;
+    pointerX = e.offsetX;
+    pointerY = e.offsetY;
+  };
+  const onMouseUp = () => { active = false; };
+
+  const onTouchStart = (e: TouchEvent) => {
+    if (!e.touches[0]) return;
+    active = true;
+    const rect = canvas.getBoundingClientRect();
+    pointerX = e.touches[0].clientX - rect.left;
+    pointerY = e.touches[0].clientY - rect.top;
+  };
+  const onTouchMove = (e: TouchEvent) => {
+    if (!active || !e.touches[0]) return;
+    const rect = canvas.getBoundingClientRect();
+    pointerX = e.touches[0].clientX - rect.left;
+    pointerY = e.touches[0].clientY - rect.top;
+  };
+  const onTouchEnd = () => { active = false; };
+
+  const applyAttraction = () => {
+    if (!active) return;
+    const draggedBody = world.mouseConstraint?.body;
+    for (const [, body] of world.bodies) {
+      if (body.isStatic || body === draggedBody) continue;
+      const dx = pointerX - body.position.x;
+      const dy = pointerY - body.position.y;
+      const distSq = dx * dx + dy * dy;
+      if (distSq < 100) continue;
+      const dist = Math.sqrt(distSq);
+      const f = FORCE * body.mass;
+      Body.applyForce(body, body.position, {
+        x: (dx / dist) * f,
+        y: (dy / dist) * f,
+      });
+    }
+  };
+
+  canvas.addEventListener("mousedown", onMouseDown);
+  canvas.addEventListener("mousemove", onMouseMove);
+  window.addEventListener("mouseup", onMouseUp);
+  canvas.addEventListener("touchstart", onTouchStart, { passive: true });
+  canvas.addEventListener("touchmove", onTouchMove, { passive: true });
+  canvas.addEventListener("touchend", onTouchEnd, { passive: true });
+  Events.on(world.engine, "beforeUpdate", applyAttraction);
+
+  return () => {
+    canvas.removeEventListener("mousedown", onMouseDown);
+    canvas.removeEventListener("mousemove", onMouseMove);
+    window.removeEventListener("mouseup", onMouseUp);
+    canvas.removeEventListener("touchstart", onTouchStart);
+    canvas.removeEventListener("touchmove", onTouchMove);
+    canvas.removeEventListener("touchend", onTouchEnd);
+    Events.off(world.engine, "beforeUpdate", applyAttraction);
   };
 }
 

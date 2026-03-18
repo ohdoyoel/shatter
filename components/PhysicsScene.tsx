@@ -15,11 +15,9 @@ export default function PhysicsScene({ data }: { data: CaptureResponse }) {
   const shatteredRef = useRef(false);
   const deviceGravityCleanupRef = useRef<(() => void) | null>(null);
   const desktopGravityCleanupRef = useRef<(() => void) | null>(null);
+  const touchAttractionCleanupRef = useRef<(() => void) | null>(null);
   const [shattered, setShattered] = useState(false);
   const [needsPermission, setNeedsPermission] = useState(false);
-  const [gravityDebug, setGravityDebug] = useState<GravityStatus | null>(null);
-  const [debugVisible, setDebugVisible] = useState(false);
-  const debugHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Convert screenshot data URI to blob URL for efficient CSS usage
   const [bgUrl, setBgUrl] = useState<string | null>(null);
@@ -113,21 +111,14 @@ export default function PhysicsScene({ data }: { data: CaptureResponse }) {
 
       // No scroll-following walls — walls are fixed at page boundaries
 
-      // Gravity status callback for debug indicator
-      const onGravityStatus = (status: GravityStatus) => {
-        setGravityDebug(status);
-        setDebugVisible(true);
+      // Touch/click attraction
+      touchAttractionCleanupRef.current = physics.startTouchAttraction(
+        world,
+        containerRef.current!
+      );
 
-        // Auto-hide after 5 seconds of successful readings
-        if (status.type === "active") {
-          if (debugHideTimerRef.current) {
-            clearTimeout(debugHideTimerRef.current);
-          }
-          debugHideTimerRef.current = setTimeout(() => {
-            setDebugVisible(false);
-          }, 5000);
-        }
-      };
+      // Gravity status callback (no-op, debug UI removed)
+      const onGravityStatus = (_status: GravityStatus) => {};
 
       // Gravity input strategy:
       // - On iOS: show permission button, start desktop gravity as fallback.
@@ -194,6 +185,10 @@ export default function PhysicsScene({ data }: { data: CaptureResponse }) {
         window.removeEventListener("scroll", scrollHandlerRef.current);
         scrollHandlerRef.current = null;
       }
+      if (touchAttractionCleanupRef.current) {
+        touchAttractionCleanupRef.current();
+        touchAttractionCleanupRef.current = null;
+      }
       if (deviceGravityCleanupRef.current) {
         deviceGravityCleanupRef.current();
         deviceGravityCleanupRef.current = null;
@@ -201,10 +196,6 @@ export default function PhysicsScene({ data }: { data: CaptureResponse }) {
       if (desktopGravityCleanupRef.current) {
         desktopGravityCleanupRef.current();
         desktopGravityCleanupRef.current = null;
-      }
-      if (debugHideTimerRef.current) {
-        clearTimeout(debugHideTimerRef.current);
-        debugHideTimerRef.current = null;
       }
       if (worldRef.current) {
         import("@/lib/physics").then((physics) => {
@@ -229,23 +220,9 @@ export default function PhysicsScene({ data }: { data: CaptureResponse }) {
         desktopGravityCleanupRef.current();
         desktopGravityCleanupRef.current = null;
       }
-      const onStatus = (status: GravityStatus) => {
-        setGravityDebug(status);
-        setDebugVisible(true);
-        if (status.type === "active") {
-          if (debugHideTimerRef.current) {
-            clearTimeout(debugHideTimerRef.current);
-          }
-          debugHideTimerRef.current = setTimeout(() => {
-            setDebugVisible(false);
-          }, 5000);
-        }
-      };
+      const onStatus = (_status: GravityStatus) => {};
       deviceGravityCleanupRef.current = physics.startDeviceGravity(world, onStatus);
       setNeedsPermission(false);
-    } else {
-      setGravityDebug({ type: "no-sensor" });
-      setDebugVisible(true);
     }
   }, []);
 
@@ -276,33 +253,6 @@ export default function PhysicsScene({ data }: { data: CaptureResponse }) {
         </button>
       )}
 
-      {/* Gravity debug indicator */}
-      {gravityDebug && debugVisible && (
-        <div
-          style={{
-            position: "fixed",
-            bottom: 12,
-            right: 12,
-            zIndex: 9999,
-            backgroundColor: "rgba(0,0,0,0.55)",
-            color: "#fff",
-            fontSize: 11,
-            fontFamily: "monospace",
-            padding: "4px 8px",
-            borderRadius: 6,
-            pointerEvents: "none",
-            backdropFilter: "blur(4px)",
-            lineHeight: 1.4,
-            opacity: 0.8,
-            transition: "opacity 0.5s",
-          }}
-        >
-          {gravityDebug.type === "no-sensor" && "Gravity: No sensor (use arrow keys)"}
-          {gravityDebug.type === "waiting-permission" && "Gravity: Waiting for permission"}
-          {gravityDebug.type === "active" &&
-            `Gravity [${gravityDebug.source}]: gx=${gravityDebug.gx} gy=${gravityDebug.gy}`}
-        </div>
-      )}
       {/* Masks: appear on shatter to erase physics elements from background */}
       {shattered &&
         data.elements

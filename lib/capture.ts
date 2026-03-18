@@ -62,11 +62,19 @@ export async function captureUrl(
   const page = await browser.newPage();
 
   try {
-    await page.setViewport({ ...viewport, deviceScaleFactor });
+    const isMobile = viewport.width < 768;
+    await page.setViewport({
+      ...viewport,
+      deviceScaleFactor,
+      isMobile,
+      hasTouch: isMobile,
+    });
 
-    // Spoof as real Chrome to prevent sites from serving different content
+    // Use mobile or desktop user agent based on viewport width
     await page.setUserAgent(
-      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+      isMobile
+        ? "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
+        : "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
     );
     await page.evaluateOnNewDocument(() => {
       Object.defineProperty(navigator, "webdriver", { get: () => false });
