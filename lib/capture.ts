@@ -17,7 +17,13 @@ async function getBrowser(): Promise<Browser> {
 
   if (isVercel) {
     browserInstance = await puppeteer.launch({
-      args: chromium.args,
+      args: [
+        ...chromium.args,
+        "--single-process",
+        "--disable-dev-shm-usage",
+        "--disable-gpu",
+        "--no-zygote",
+      ],
       executablePath: await chromium.executablePath(CHROMIUM_REMOTE_URL),
       headless: true,
     });
