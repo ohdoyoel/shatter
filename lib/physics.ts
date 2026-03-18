@@ -332,26 +332,58 @@ export function startDeviceGravity(
 
 /**
  * Apply inertial forces from device acceleration (shaking/jerking the phone).
- * Uses DeviceMotionEvent.acceleration (gravity-removed).
+ * Prefers acceleration (gravity-removed); falls back to accelerationIncludingGravity
+ * with a high-pass filter to isolate shake from gravity.
  * When the phone jerks right, bodies resist and drift left (Newton's 1st law).
  */
 export function startDeviceMotion(
   world: PhysicsWorld,
 ): () => void {
-  const INERTIA_SCALE = 0.00025;
-  const THRESHOLD = 0.5; // ignore micro-vibrations (m/s²)
-  const MAX_ACC = 30; // cap extreme values
+  const INERTIA_SCALE = 0.001;
+  const THRESHOLD = 0.3; // ignore micro-vibrations (m/s²)
+  const MAX_ACC = 30;
+
+  // High-pass filter state for accelerationIncludingGravity fallback
+  let prevRawX = 0, prevRawY = 0;
+  let filteredX = 0, filteredY = 0;
+  const HP_ALPHA = 0.8; // high-pass coefficient (higher = more responsive)
+  let initialized = false;
 
   const clamp = (v: number, max: number) => Math.max(-max, Math.min(max, v));
 
   const handler = (event: DeviceMotionEvent) => {
-    const acc = event.acceleration;
-    if (!acc || acc.x == null || acc.y == null) return;
+    let ax: number, ay: number;
 
-    if (Math.abs(acc.x) < THRESHOLD && Math.abs(acc.y) < THRESHOLD) return;
+    const pure = event.acceleration;
+    if (pure && pure.x != null && pure.y != null) {
+      // Gyroscope available: gravity already removed
+      ax = pure.x;
+      ay = pure.y;
+    } else {
+      // Fallback: high-pass filter to remove gravity from raw accelerometer
+      const raw = event.accelerationIncludingGravity;
+      if (!raw || raw.x == null || raw.y == null) return;
 
-    const ax = clamp(acc.x, MAX_ACC);
-    const ay = clamp(acc.y, MAX_ACC);
+      if (!initialized) {
+        prevRawX = raw.x;
+        prevRawY = raw.y;
+        initialized = true;
+        return;
+      }
+
+      filteredX = HP_ALPHA * (filteredX + raw.x - prevRawX);
+      filteredY = HP_ALPHA * (filteredY + raw.y - prevRawY);
+      prevRawX = raw.x;
+      prevRawY = raw.y;
+
+      ax = filteredX;
+      ay = filteredY;
+    }
+
+    if (Math.abs(ax) < THRESHOLD && Math.abs(ay) < THRESHOLD) return;
+
+    ax = clamp(ax, MAX_ACC);
+    ay = clamp(ay, MAX_ACC);
 
     // Phone accelerates right (acc.x > 0) → pseudo-force pushes bodies left (−x)
     // Phone accelerates up (acc.y > 0) → pseudo-force pushes bodies down (+screen y)
