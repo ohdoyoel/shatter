@@ -1,25 +1,28 @@
 "use client";
 
-import { useEffect, useRef, useCallback, useState } from "react";
+import { useEffect, useRef, useCallback, useState, useMemo } from "react";
 import type { CaptureResponse, CapturedElement } from "@/lib/types";
-import type { GravityStatus } from "@/lib/physics";
 
 export default function PhysicsScene({ data }: { data: CaptureResponse }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const elementsRef = useRef<Map<string, HTMLDivElement>>(new Map());
   const worldRef = useRef<any>(null);
   const rafRef = useRef<number>(0);
-  const scrollHandlerRef = useRef<(() => void) | null>(null);
   const physicsRef = useRef<any>(null);
-  const activatedRef = useRef<Set<string>>(new Set());
   const shatteredRef = useRef(false);
   const deviceGravityCleanupRef = useRef<(() => void) | null>(null);
   const deviceMotionCleanupRef = useRef<(() => void) | null>(null);
   const desktopGravityCleanupRef = useRef<(() => void) | null>(null);
   const [shattered, setShattered] = useState(false);
   const [needsPermission, setNeedsPermission] = useState(false);
-  const [gravityOn, setGravityOn] = useState(true);
+  const [gravityOn, setGravityOn] = useState(false);
   const [inertiaOn, setInertiaOn] = useState(true);
+
+  // O(1) element lookup for animation loop (avoids O(n) find per body per frame)
+  const elementMap = useMemo(
+    () => new Map(data.elements.map((e) => [e.id, e])),
+    [data.elements]
+  );
 
   // Convert screenshot data URI to blob URL for efficient CSS usage
   const [bgUrl, setBgUrl] = useState<string | null>(null);
@@ -95,7 +98,7 @@ export default function PhysicsScene({ data }: { data: CaptureResponse }) {
             const el = elementsRef.current.get(id);
             if (!el) return;
 
-            const element = data.elements.find((e) => e.id === id);
+            const element = elementMap.get(id);
             if (!element) return;
 
             const origCenterX = element.x + element.width / 2;
@@ -114,47 +117,26 @@ export default function PhysicsScene({ data }: { data: CaptureResponse }) {
 
       rafRef.current = requestAnimationFrame(updatePositions);
 
-      // No scroll-following walls — walls are fixed at page boundaries
-
-      // Gravity status callback (no-op, debug UI removed)
-      const onGravityStatus = (_status: GravityStatus) => {};
-
       // Gravity input strategy:
       // - iOS: zero gravity until permission granted, then sensor + motion.
-      // - Android: try sensor immediately (snaps on first reading) + motion.
-      //   Desktop gravity as brief fallback until sensor fires.
+      // - Android: try sensor immediately; desktop gravity as fallback until sensor fires.
       // - Desktop: keyboard + mouse-edge only.
       if (physics.needsDeviceOrientationPermission()) {
-        // iOS: zero gravity until permission — bodies float after shatter
         world.engine.gravity.x = 0;
         world.engine.gravity.y = 0;
         setNeedsPermission(true);
-        onGravityStatus({ type: "waiting-permission" });
       } else if (typeof window.DeviceOrientationEvent !== "undefined") {
-        // Android: start sensor immediately (first reading snaps gravity)
-        desktopGravityCleanupRef.current = physics.startDesktopGravity(
-          world,
-          onGravityStatus
-        );
-        deviceGravityCleanupRef.current = physics.startDeviceGravity(
-          world,
-          (status) => {
-            onGravityStatus(status);
-            if (status.type === "active") {
-              if (desktopGravityCleanupRef.current) {
-                desktopGravityCleanupRef.current();
-                desktopGravityCleanupRef.current = null;
-              }
-            }
+        desktopGravityCleanupRef.current = physics.startDesktopGravity(world);
+        deviceGravityCleanupRef.current = physics.startDeviceGravity(world, () => {
+          // Sensor active — stop desktop gravity fallback
+          if (desktopGravityCleanupRef.current) {
+            desktopGravityCleanupRef.current();
+            desktopGravityCleanupRef.current = null;
           }
-        );
+        });
         deviceMotionCleanupRef.current = physics.startDeviceMotion(world);
       } else {
-        onGravityStatus({ type: "no-sensor" });
-        desktopGravityCleanupRef.current = physics.startDesktopGravity(
-          world,
-          onGravityStatus
-        );
+        desktopGravityCleanupRef.current = physics.startDesktopGravity(world);
       }
 
       // Shatter after a short delay to let elements render
@@ -173,10 +155,6 @@ export default function PhysicsScene({ data }: { data: CaptureResponse }) {
       mounted = false;
       if (rafRef.current) {
         cancelAnimationFrame(rafRef.current);
-      }
-      if (scrollHandlerRef.current) {
-        window.removeEventListener("scroll", scrollHandlerRef.current);
-        scrollHandlerRef.current = null;
       }
       if (deviceMotionCleanupRef.current) {
         deviceMotionCleanupRef.current();
@@ -212,8 +190,7 @@ export default function PhysicsScene({ data }: { data: CaptureResponse }) {
         desktopGravityCleanupRef.current();
         desktopGravityCleanupRef.current = null;
       }
-      const onStatus = (_status: GravityStatus) => {};
-      deviceGravityCleanupRef.current = physics.startDeviceGravity(world, onStatus);
+      deviceGravityCleanupRef.current = physics.startDeviceGravity(world);
       deviceMotionCleanupRef.current = physics.startDeviceMotion(world);
       setNeedsPermission(false);
     }
@@ -223,11 +200,8 @@ export default function PhysicsScene({ data }: { data: CaptureResponse }) {
   useEffect(() => {
     const world = worldRef.current;
     if (!world) return;
-    if (gravityOn) {
-      world.engine.gravity.scale = 0.005;
-    } else {
-      world.engine.gravity.scale = 0;
-    }
+    const physics = physicsRef.current;
+    world.engine.gravity.scale = gravityOn && physics ? physics.GRAVITY_SCALE : 0;
   }, [gravityOn]);
 
   // Toggle inertia on/off

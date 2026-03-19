@@ -12,13 +12,7 @@ const {
   Runner,
 } = Matter;
 
-// --- Gravity status reporting for debug indicator ---
-export type GravityStatus =
-  | { type: "no-sensor" }
-  | { type: "waiting-permission" }
-  | { type: "active"; gx: number; gy: number; source: string };
-
-export type GravityStatusCallback = (status: GravityStatus) => void;
+export const GRAVITY_SCALE = 0.005;
 
 export interface PhysicsWorld {
   engine: Matter.Engine;
@@ -35,7 +29,7 @@ export function createPhysicsWorld(
   sceneHeight?: number
 ): PhysicsWorld {
   const engine = Engine.create({
-    gravity: { x: 0, y: 1, scale: 0.005 },
+    gravity: { x: 0, y: 1, scale: 0 },
   });
 
   const runner = Runner.create();
@@ -139,7 +133,6 @@ export function createPhysicsWorld(
   World.add(engine.world, mouseConstraint);
 
   // Touch events NOT added to mouse constraint — scroll works naturally on mobile.
-  // Touch attraction is handled separately via startTouchAttraction().
 
   // Track velocity for throwing
   let lastMousePos = { x: 0, y: 0 };
@@ -234,30 +227,6 @@ export function triggerShatter(world: PhysicsWorld): void {
   }
 }
 
-export function activateBody(world: PhysicsWorld, elementId: string): void {
-  const body = world.bodies.get(elementId);
-  if (!body || !body.isStatic) return;
-
-  Body.setStatic(body, false);
-
-  // Random impulse for dramatic effect
-  const impulseX = (Math.random() - 0.5) * 0.02;
-  const impulseY = -Math.random() * 0.01;
-
-  Body.applyForce(body, body.position, {
-    x: impulseX,
-    y: impulseY,
-  });
-}
-
-export function clampBody(world: PhysicsWorld, elementId: string, x: number, y: number): void {
-  const body = world.bodies.get(elementId);
-  if (!body || body.isStatic) return;
-  Body.setPosition(body, { x, y });
-  Body.setVelocity(body, { x: 0, y: 0 });
-}
-
-
 // --- Device sensor gravity ---
 
 export function needsDeviceOrientationPermission(): boolean {
@@ -295,11 +264,10 @@ export async function requestDeviceOrientationPermission(): Promise<boolean> {
  */
 export function startDeviceGravity(
   world: PhysicsWorld,
-  onStatus?: GravityStatusCallback
+  onActive?: () => void,
 ): () => void {
   let smoothX = 0;
   let smoothY = 0;
-  let receivedEvents = false;
   let firstReading = true;
   const ALPHA = 0.08; // lower = heavier feel / more inertia
   const DEG = Math.PI / 180;
@@ -307,22 +275,17 @@ export function startDeviceGravity(
   const handler = (event: DeviceOrientationEvent) => {
     if (event.beta == null || event.gamma == null) return;
 
-    receivedEvents = true;
-
-    const gamma = event.gamma;
-    const beta = event.beta;
-
-    const gx = Math.sin(gamma * DEG);
-    const gy = Math.cos((beta - 90) * DEG);
+    const gx = Math.sin(event.gamma * DEG);
+    const gy = Math.cos((event.beta - 90) * DEG);
 
     const clampedGx = Math.max(-1, Math.min(1, gx));
     const clampedGy = Math.max(-1, Math.min(1, gy));
 
     if (firstReading) {
-      // Snap immediately on first reading — no lag from EMA warmup
       smoothX = clampedGx;
       smoothY = clampedGy;
       firstReading = false;
+      onActive?.();
     } else {
       smoothX += (clampedGx - smoothX) * ALPHA;
       smoothY += (clampedGy - smoothY) * ALPHA;
@@ -330,28 +293,11 @@ export function startDeviceGravity(
 
     world.engine.gravity.x = smoothX;
     world.engine.gravity.y = smoothY;
-
-    if (onStatus) {
-      onStatus({
-        type: "active",
-        gx: Math.round(smoothX * 100) / 100,
-        gy: Math.round(smoothY * 100) / 100,
-        source: "sensor",
-      });
-    }
   };
 
   window.addEventListener("deviceorientation", handler, true);
 
-  // Detect if sensor never fires (desktop browser without sensor)
-  const timeoutId = setTimeout(() => {
-    if (!receivedEvents && onStatus) {
-      onStatus({ type: "no-sensor" });
-    }
-  }, 2000);
-
   return () => {
-    clearTimeout(timeoutId);
     window.removeEventListener("deviceorientation", handler, true);
     world.engine.gravity.x = 0;
     world.engine.gravity.y = 1;
@@ -368,9 +314,9 @@ export function startDeviceGravity(
 export function startDeviceMotion(
   world: PhysicsWorld,
 ): () => void {
-  const INERTIA_SCALE = 0.005;
-  const THRESHOLD = 0.2;
-  const MAX_ACC = 30;
+  const INERTIA_SCALE = 0.012;
+  const THRESHOLD = 0.08;
+  const MAX_ACC = 40;
 
   // Accumulated acceleration (written by event, read by engine tick)
   let accX = 0;
@@ -379,7 +325,7 @@ export function startDeviceMotion(
   // High-pass filter state for accelerationIncludingGravity fallback
   let prevRawX = 0, prevRawY = 0;
   let filteredX = 0, filteredY = 0;
-  const HP_ALPHA = 0.8;
+  const HP_ALPHA = 0.9;
   let initialized = false;
 
   const clamp = (v: number, max: number) => Math.max(-max, Math.min(max, v));
@@ -443,11 +389,9 @@ export function startDeviceMotion(
  */
 export function startDesktopGravity(
   world: PhysicsWorld,
-  onStatus?: GravityStatusCallback
 ): () => void {
   // --- Keyboard state ---
   const keysHeld = new Set<string>();
-  const TILT_STRENGTH = 0.8;
 
   // --- Mouse-edge state ---
   let mouseEdgeX = 0;
@@ -519,24 +463,20 @@ export function startDesktopGravity(
     let targetX: number;
     let targetY: number;
     let lerpSpeed: number;
-    let isKeyboard = false;
 
     if (keysHeld.size > 0) {
-      // Keyboard takes priority — no key = default gravity (0,1)
       targetX = 0;
       targetY = 0;
       if (keysHeld.has("left")) targetX -= 1;
       if (keysHeld.has("right")) targetX += 1;
       if (keysHeld.has("up")) targetY -= 1;
       if (keysHeld.has("down")) targetY += 1;
-      // Normalize diagonal so magnitude stays at 1
       const mag = Math.sqrt(targetX * targetX + targetY * targetY);
       if (mag > 1) {
         targetX /= mag;
         targetY /= mag;
       }
       lerpSpeed = KB_LERP;
-      isKeyboard = true;
     } else {
       // No keyboard → settle back to default gravity (down)
       targetX = mouseEdgeX;
@@ -549,15 +489,6 @@ export function startDesktopGravity(
 
     world.engine.gravity.x = smoothX;
     world.engine.gravity.y = smoothY;
-
-    if (isKeyboard && onStatus) {
-      onStatus({
-        type: "active",
-        gx: Math.round(smoothX * 100) / 100,
-        gy: Math.round(smoothY * 100) / 100,
-        source: "keyboard",
-      });
-    }
 
     animId = requestAnimationFrame(tick);
   }
@@ -574,84 +505,6 @@ export function startDesktopGravity(
     cancelAnimationFrame(animId);
     world.engine.gravity.x = 0;
     world.engine.gravity.y = 1;
-  };
-}
-
-/**
- * Touch/click gravity attraction: while pressing, all bodies are pulled
- * toward the pointer position. Works with both mouse and touch.
- * Touch events are passive so they don't block scrolling.
- */
-export function startTouchAttraction(
-  world: PhysicsWorld,
-  canvas: HTMLElement
-): () => void {
-  let active = false;
-  let pointerX = 0;
-  let pointerY = 0;
-  const FORCE = 0.008;
-
-  const onMouseDown = (e: MouseEvent) => {
-    active = true;
-    pointerX = e.offsetX;
-    pointerY = e.offsetY;
-  };
-  const onMouseMove = (e: MouseEvent) => {
-    if (!active) return;
-    pointerX = e.offsetX;
-    pointerY = e.offsetY;
-  };
-  const onMouseUp = () => { active = false; };
-
-  const onTouchStart = (e: TouchEvent) => {
-    if (!e.touches[0]) return;
-    active = true;
-    const rect = canvas.getBoundingClientRect();
-    pointerX = e.touches[0].clientX - rect.left;
-    pointerY = e.touches[0].clientY - rect.top;
-  };
-  const onTouchMove = (e: TouchEvent) => {
-    if (!active || !e.touches[0]) return;
-    const rect = canvas.getBoundingClientRect();
-    pointerX = e.touches[0].clientX - rect.left;
-    pointerY = e.touches[0].clientY - rect.top;
-  };
-  const onTouchEnd = () => { active = false; };
-
-  const applyAttraction = () => {
-    if (!active) return;
-    const draggedBody = world.mouseConstraint?.body;
-    for (const [, body] of world.bodies) {
-      if (body.isStatic || body === draggedBody) continue;
-      const dx = pointerX - body.position.x;
-      const dy = pointerY - body.position.y;
-      const distSq = dx * dx + dy * dy;
-      if (distSq < 100) continue;
-      const dist = Math.sqrt(distSq);
-      const f = FORCE * body.mass;
-      Body.applyForce(body, body.position, {
-        x: (dx / dist) * f,
-        y: (dy / dist) * f,
-      });
-    }
-  };
-
-  canvas.addEventListener("mousedown", onMouseDown);
-  canvas.addEventListener("mousemove", onMouseMove);
-  window.addEventListener("mouseup", onMouseUp);
-  canvas.addEventListener("touchstart", onTouchStart, { passive: true });
-  canvas.addEventListener("touchmove", onTouchMove, { passive: true });
-  canvas.addEventListener("touchend", onTouchEnd, { passive: true });
-  Events.on(world.engine, "beforeUpdate", applyAttraction);
-
-  return () => {
-    canvas.removeEventListener("mousedown", onMouseDown);
-    canvas.removeEventListener("mousemove", onMouseMove);
-    window.removeEventListener("mouseup", onMouseUp);
-    canvas.removeEventListener("touchstart", onTouchStart);
-    canvas.removeEventListener("touchmove", onTouchMove);
-    canvas.removeEventListener("touchend", onTouchEnd);
-    Events.off(world.engine, "beforeUpdate", applyAttraction);
   };
 }
 
