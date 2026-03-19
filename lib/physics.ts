@@ -40,11 +40,9 @@ export function createPhysicsWorld(
 
   const runner = Runner.create();
 
-  const wallThickness = 60;
+  const wallThickness = 400; // thick walls to prevent tunneling at high velocity
   const totalHeight = sceneHeight || viewport.height;
 
-  // Fixed walls enclosing the entire scrollable page area.
-  // No floor/ceiling follow viewport — just hard boundaries.
   const floor = Bodies.rectangle(
     viewport.width / 2,
     totalHeight + wallThickness / 2,
@@ -78,6 +76,36 @@ export function createPhysicsWorld(
   );
 
   World.add(engine.world, [floor, ceiling, leftWall, rightWall]);
+
+  // Velocity cap + position clamping — prevent bodies escaping bounds
+  const MAX_SPEED = 30;
+  const bounds = { minX: 0, maxX: viewport.width, minY: 0, maxY: totalHeight };
+
+  Events.on(engine, "beforeUpdate", () => {
+    for (const body of engine.world.bodies) {
+      if (body.isStatic) continue;
+
+      // Cap velocity to prevent tunneling
+      const vx = body.velocity.x;
+      const vy = body.velocity.y;
+      const speed = Math.sqrt(vx * vx + vy * vy);
+      if (speed > MAX_SPEED) {
+        const scale = MAX_SPEED / speed;
+        Body.setVelocity(body, { x: vx * scale, y: vy * scale });
+      }
+
+      // Hard clamp position — safety net if body somehow escapes walls
+      const { x, y } = body.position;
+      const clamped = {
+        x: Math.max(bounds.minX, Math.min(bounds.maxX, x)),
+        y: Math.max(bounds.minY, Math.min(bounds.maxY, y)),
+      };
+      if (clamped.x !== x || clamped.y !== y) {
+        Body.setPosition(body, clamped);
+        Body.setVelocity(body, { x: 0, y: 0 });
+      }
+    }
+  });
 
   // Mouse constraint — drag physics bodies, but allow page scrolling
   const mouse = Mouse.create(canvas);
