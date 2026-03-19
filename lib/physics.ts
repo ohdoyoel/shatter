@@ -332,35 +332,36 @@ export function startDeviceGravity(
 
 /**
  * Apply inertial forces from device acceleration (shaking/jerking the phone).
- * Prefers acceleration (gravity-removed); falls back to accelerationIncludingGravity
- * with a high-pass filter to isolate shake from gravity.
- * When the phone jerks right, bodies resist and drift left (Newton's 1st law).
+ * Accumulates acceleration from DeviceMotionEvent, then applies forces
+ * inside the engine's beforeUpdate to guarantee correct timing.
+ * Prefers acceleration (gravity-removed); falls back to
+ * accelerationIncludingGravity with a high-pass filter.
  */
 export function startDeviceMotion(
   world: PhysicsWorld,
 ): () => void {
-  const INERTIA_SCALE = 0.001;
-  const THRESHOLD = 0.3; // ignore micro-vibrations (m/s²)
+  const INERTIA_SCALE = 0.005;
+  const THRESHOLD = 0.2;
   const MAX_ACC = 30;
+
+  // Accumulated acceleration (written by event, read by engine tick)
+  let accX = 0;
+  let accY = 0;
 
   // High-pass filter state for accelerationIncludingGravity fallback
   let prevRawX = 0, prevRawY = 0;
   let filteredX = 0, filteredY = 0;
-  const HP_ALPHA = 0.8; // high-pass coefficient (higher = more responsive)
+  const HP_ALPHA = 0.8;
   let initialized = false;
 
   const clamp = (v: number, max: number) => Math.max(-max, Math.min(max, v));
 
   const handler = (event: DeviceMotionEvent) => {
-    let ax: number, ay: number;
-
     const pure = event.acceleration;
     if (pure && pure.x != null && pure.y != null) {
-      // Gyroscope available: gravity already removed
-      ax = pure.x;
-      ay = pure.y;
+      accX = pure.x;
+      accY = pure.y;
     } else {
-      // Fallback: high-pass filter to remove gravity from raw accelerometer
       const raw = event.accelerationIncludingGravity;
       if (!raw || raw.x == null || raw.y == null) return;
 
@@ -376,17 +377,18 @@ export function startDeviceMotion(
       prevRawX = raw.x;
       prevRawY = raw.y;
 
-      ax = filteredX;
-      ay = filteredY;
+      accX = filteredX;
+      accY = filteredY;
     }
+  };
 
-    if (Math.abs(ax) < THRESHOLD && Math.abs(ay) < THRESHOLD) return;
+  // Apply accumulated acceleration during engine update — guaranteed timing
+  const applyInertia = () => {
+    if (Math.abs(accX) < THRESHOLD && Math.abs(accY) < THRESHOLD) return;
 
-    ax = clamp(ax, MAX_ACC);
-    ay = clamp(ay, MAX_ACC);
+    const ax = clamp(accX, MAX_ACC);
+    const ay = clamp(accY, MAX_ACC);
 
-    // Phone accelerates right (acc.x > 0) → pseudo-force pushes bodies left (−x)
-    // Phone accelerates up (acc.y > 0) → pseudo-force pushes bodies down (+screen y)
     for (const [, body] of world.bodies) {
       if (body.isStatic) continue;
       Body.applyForce(body, body.position, {
@@ -397,9 +399,11 @@ export function startDeviceMotion(
   };
 
   window.addEventListener("devicemotion", handler, true);
+  Events.on(world.engine, "beforeUpdate", applyInertia);
 
   return () => {
     window.removeEventListener("devicemotion", handler, true);
+    Events.off(world.engine, "beforeUpdate", applyInertia);
   };
 }
 
