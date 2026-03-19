@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <linearGradient id="s5-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f87171"/>
+      <stop offset="50%" stop-color="#ef4444"/>
+      <stop offset="100%" stop-color="#b91c1c"/>
+    </linearGradient>
+    <filter id="s5-glow">
+      <feGaussianBlur stdDeviation="2" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <polygon points="36,4 22,30 30,30 20,60 46,28 36,28 46,4" fill="url(#s5-grad)" filter="url(#s5-glow)"/>
+  <polygon points="36,10 26,28 32,28 24,52 42,30 36,30 42,10" fill="#fff" opacity="0.2"/>
+  <g stroke="#fff" stroke-width="0.8" opacity="0.5">
+    <line x1="26" y1="30" x2="8" y2="22"/>
+    <line x1="8" y1="22" x2="4" y2="18"/>
+    <line x1="8" y1="22" x2="6" y2="26"/>
+    <line x1="24" y1="38" x2="6" y2="42"/>
+    <line x1="6" y1="42" x2="2" y2="38"/>
+    <line x1="6" y1="42" x2="4" y2="48"/>
+    <line x1="40" y1="28" x2="56" y2="18"/>
+    <line x1="56" y1="18" x2="60" y2="14"/>
+    <line x1="56" y1="18" x2="60" y2="22"/>
+    <line x1="42" y1="34" x2="58" y2="40"/>
+    <line x1="58" y1="40" x2="62" y2="36"/>
+    <line x1="58" y1="40" x2="60" y2="46"/>
+    <line x1="34" y1="18" x2="52" y2="8"/>
+    <line x1="52" y1="8" x2="56" y2="4"/>
+    <line x1="52" y1="8" x2="56" y2="12"/>
+    <line x1="28" y1="44" x2="10" y2="54"/>
+    <line x1="10" y1="54" x2="6" y2="58"/>
+    <line x1="10" y1="54" x2="4" y2="52"/>
+  </g>
+  <polygon points="6,16 10,14 8,18" fill="#ef4444" opacity="0.4"/>
+  <polygon points="56,44 60,42 58,48" fill="#ef4444" opacity="0.35"/>
+  <polygon points="12,50 16,52 14,56" fill="#ef4444" opacity="0.3"/>
+  <polygon points="52,10 54,6 56,10" fill="#ef4444" opacity="0.35"/>
+  <circle cx="32" cy="32" r="4" fill="#fff" opacity="0.3"/>
+  <circle cx="32" cy="32" r="2" fill="#fff" opacity="0.5"/>
+</svg>

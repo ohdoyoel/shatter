@@ -4,6 +4,9 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Shatter",
   description: "Break any webpage into pieces with physics simulation",
+  icons: {
+    icon: "/favicon.svg",
+  },
 };
 
 export default function RootLayout({

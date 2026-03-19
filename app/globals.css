@@ -52,20 +52,66 @@ body {
 }
 
 /* ===== Shatter demo animation ===== */
+/* Total cycle: 8s
+   0-3s (0%-37.5%):   intact visible, shards hidden
+   3-3.3s (37.5%-41%): shake
+   3.3-3.5s (41%-44%): crack overlay + flash
+   3.5s (44%):         intact hides, shards appear
+   3.5-7s (44%-87.5%): shards falling
+   7-8s (87.5%-100%):  fade out, reset
+*/
 
 /* The "before" state: intact page mockup */
 @keyframes demo-intact {
-  0%, 40% {
+  0%, 36% {
     opacity: 1;
-    transform: scale(1);
+    transform: scale(1) translate(0, 0);
   }
-  50% {
-    opacity: 0;
-    transform: scale(0.95);
+  /* Shake phase */
+  37% {
+    opacity: 1;
+    transform: scale(1) translate(-3px, 1px);
   }
-  50.1%, 90% {
+  37.5% {
+    opacity: 1;
+    transform: scale(1) translate(3px, -1px);
+  }
+  38% {
+    opacity: 1;
+    transform: scale(1) translate(-2px, -2px);
+  }
+  38.5% {
+    opacity: 1;
+    transform: scale(1) translate(2px, 2px);
+  }
+  39% {
+    opacity: 1;
+    transform: scale(1) translate(-1px, 1px);
+  }
+  39.5% {
+    opacity: 1;
+    transform: scale(1) translate(3px, -2px);
+  }
+  40% {
+    opacity: 1;
+    transform: scale(1) translate(-2px, 0px);
+  }
+  41% {
+    opacity: 1;
+    transform: scale(1) translate(0, 0);
+  }
+  /* Flash and disappear */
+  42% {
+    opacity: 1;
+    transform: scale(1.01);
+  }
+  44% {
     opacity: 0;
-    transform: scale(0.95);
+    transform: scale(0.98);
+  }
+  44.1%, 92% {
+    opacity: 0;
+    transform: scale(0.98);
   }
   100% {
     opacity: 1;
@@ -74,130 +120,418 @@ body {
 }
 
 .animate-demo-intact {
-  animation: demo-intact 6s ease-in-out infinite;
+  animation: demo-intact 8s ease-in-out infinite;
 }
 
-/* Individual shard falling animations */
-@keyframes shard-fall-1 {
+/* Crack overlay that appears before shatter */
+@keyframes crack-overlay {
   0%, 40% {
     opacity: 0;
-    transform: translate(0, 0) rotate(0deg);
   }
-  45% {
-    opacity: 1;
-    transform: translate(0, 0) rotate(0deg);
-  }
-  90% {
-    opacity: 1;
-    transform: translate(-30px, 120px) rotate(-18deg);
-  }
-  95%, 100% {
+  41% {
     opacity: 0;
-    transform: translate(-30px, 140px) rotate(-18deg);
+  }
+  42% {
+    opacity: 0.8;
+  }
+  44% {
+    opacity: 1;
+  }
+  46% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.animate-crack-overlay {
+  animation: crack-overlay 8s ease-in-out infinite;
+}
+
+/* Flash effect at shatter moment */
+@keyframes shatter-flash {
+  0%, 41% {
+    opacity: 0;
+  }
+  42% {
+    opacity: 0.7;
+  }
+  44% {
+    opacity: 0.9;
+  }
+  48% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.animate-shatter-flash {
+  animation: shatter-flash 8s ease-in-out infinite;
+}
+
+/* Individual shard falling animations - 10 shards with varied trajectories */
+@keyframes shard-fall-1 {
+  0%, 43% {
+    opacity: 0;
+    transform: translate(0, 0) rotate(0deg) scale(1);
+  }
+  44% {
+    opacity: 1;
+    transform: translate(0, 0) rotate(0deg) scale(1);
+  }
+  85% {
+    opacity: 1;
+    transform: translate(-40px, 180px) rotate(-25deg) scale(0.95);
+  }
+  92%, 100% {
+    opacity: 0;
+    transform: translate(-40px, 200px) rotate(-28deg) scale(0.9);
   }
 }
 
 @keyframes shard-fall-2 {
-  0%, 40% {
+  0%, 43% {
     opacity: 0;
-    transform: translate(0, 0) rotate(0deg);
+    transform: translate(0, 0) rotate(0deg) scale(1);
   }
-  45% {
+  44.5% {
     opacity: 1;
-    transform: translate(0, 0) rotate(0deg);
+    transform: translate(0, 0) rotate(0deg) scale(1);
   }
-  90% {
+  85% {
     opacity: 1;
-    transform: translate(20px, 100px) rotate(12deg);
+    transform: translate(30px, 160px) rotate(18deg) scale(0.95);
   }
-  95%, 100% {
+  92%, 100% {
     opacity: 0;
-    transform: translate(20px, 120px) rotate(12deg);
+    transform: translate(30px, 175px) rotate(20deg) scale(0.9);
   }
 }
 
 @keyframes shard-fall-3 {
-  0%, 40% {
+  0%, 43% {
     opacity: 0;
-    transform: translate(0, 0) rotate(0deg);
+    transform: translate(0, 0) rotate(0deg) scale(1);
   }
-  45% {
+  44% {
     opacity: 1;
-    transform: translate(0, 0) rotate(0deg);
+    transform: translate(0, 0) rotate(0deg) scale(1);
   }
-  90% {
+  85% {
     opacity: 1;
-    transform: translate(-10px, 140px) rotate(-8deg);
+    transform: translate(-15px, 195px) rotate(-12deg) scale(0.97);
   }
-  95%, 100% {
+  92%, 100% {
     opacity: 0;
-    transform: translate(-10px, 160px) rotate(-8deg);
+    transform: translate(-15px, 210px) rotate(-14deg) scale(0.92);
   }
 }
 
 @keyframes shard-fall-4 {
-  0%, 40% {
+  0%, 43% {
     opacity: 0;
-    transform: translate(0, 0) rotate(0deg);
+    transform: translate(0, 0) rotate(0deg) scale(1);
   }
   45% {
     opacity: 1;
-    transform: translate(0, 0) rotate(0deg);
+    transform: translate(0, 0) rotate(0deg) scale(1);
   }
-  90% {
+  85% {
     opacity: 1;
-    transform: translate(35px, 110px) rotate(22deg);
+    transform: translate(50px, 140px) rotate(30deg) scale(0.93);
   }
-  95%, 100% {
+  92%, 100% {
     opacity: 0;
-    transform: translate(35px, 130px) rotate(22deg);
+    transform: translate(50px, 155px) rotate(33deg) scale(0.88);
   }
 }
 
 @keyframes shard-fall-5 {
-  0%, 40% {
+  0%, 43% {
     opacity: 0;
-    transform: translate(0, 0) rotate(0deg);
+    transform: translate(0, 0) rotate(0deg) scale(1);
   }
-  45% {
+  44.2% {
     opacity: 1;
-    transform: translate(0, 0) rotate(0deg);
+    transform: translate(0, 0) rotate(0deg) scale(1);
   }
-  90% {
+  85% {
     opacity: 1;
-    transform: translate(-25px, 90px) rotate(-15deg);
+    transform: translate(-35px, 120px) rotate(-20deg) scale(0.96);
   }
-  95%, 100% {
+  92%, 100% {
     opacity: 0;
-    transform: translate(-25px, 110px) rotate(-15deg);
+    transform: translate(-35px, 135px) rotate(-22deg) scale(0.91);
   }
 }
 
 @keyframes shard-fall-6 {
-  0%, 40% {
+  0%, 43% {
     opacity: 0;
-    transform: translate(0, 0) rotate(0deg);
+    transform: translate(0, 0) rotate(0deg) scale(1);
   }
-  45% {
+  44.8% {
     opacity: 1;
-    transform: translate(0, 0) rotate(0deg);
+    transform: translate(0, 0) rotate(0deg) scale(1);
   }
-  90% {
+  85% {
     opacity: 1;
-    transform: translate(15px, 130px) rotate(10deg);
+    transform: translate(20px, 185px) rotate(15deg) scale(0.94);
   }
-  95%, 100% {
+  92%, 100% {
     opacity: 0;
-    transform: translate(15px, 150px) rotate(10deg);
+    transform: translate(20px, 200px) rotate(17deg) scale(0.89);
   }
 }
 
-.animate-shard-1 { animation: shard-fall-1 6s ease-in-out infinite; }
-.animate-shard-2 { animation: shard-fall-2 6s ease-in-out infinite; }
-.animate-shard-3 { animation: shard-fall-3 6s ease-in-out infinite; }
-.animate-shard-4 { animation: shard-fall-4 6s ease-in-out infinite; }
-.animate-shard-5 { animation: shard-fall-5 6s ease-in-out infinite; }
-.animate-shard-6 { animation: shard-fall-6 6s ease-in-out infinite; }
+@keyframes shard-fall-7 {
+  0%, 43% {
+    opacity: 0;
+    transform: translate(0, 0) rotate(0deg) scale(1);
+  }
+  44.5% {
+    opacity: 1;
+    transform: translate(0, 0) rotate(0deg) scale(1);
+  }
+  85% {
+    opacity: 1;
+    transform: translate(-50px, 150px) rotate(-35deg) scale(0.92);
+  }
+  92%, 100% {
+    opacity: 0;
+    transform: translate(-50px, 165px) rotate(-38deg) scale(0.87);
+  }
+}
+
+@keyframes shard-fall-8 {
+  0%, 43% {
+    opacity: 0;
+    transform: translate(0, 0) rotate(0deg) scale(1);
+  }
+  45.2% {
+    opacity: 1;
+    transform: translate(0, 0) rotate(0deg) scale(1);
+  }
+  85% {
+    opacity: 1;
+    transform: translate(45px, 170px) rotate(28deg) scale(0.93);
+  }
+  92%, 100% {
+    opacity: 0;
+    transform: translate(45px, 188px) rotate(31deg) scale(0.88);
+  }
+}
+
+@keyframes shard-fall-9 {
+  0%, 43% {
+    opacity: 0;
+    transform: translate(0, 0) rotate(0deg) scale(1);
+  }
+  44.3% {
+    opacity: 1;
+    transform: translate(0, 0) rotate(0deg) scale(1);
+  }
+  85% {
+    opacity: 1;
+    transform: translate(10px, 200px) rotate(8deg) scale(0.96);
+  }
+  92%, 100% {
+    opacity: 0;
+    transform: translate(10px, 215px) rotate(10deg) scale(0.91);
+  }
+}
+
+@keyframes shard-fall-10 {
+  0%, 43% {
+    opacity: 0;
+    transform: translate(0, 0) rotate(0deg) scale(1);
+  }
+  45% {
+    opacity: 1;
+    transform: translate(0, 0) rotate(0deg) scale(1);
+  }
+  85% {
+    opacity: 1;
+    transform: translate(-25px, 165px) rotate(-42deg) scale(0.9);
+  }
+  92%, 100% {
+    opacity: 0;
+    transform: translate(-25px, 180px) rotate(-45deg) scale(0.85);
+  }
+}
+
+.animate-shard-1 { animation: shard-fall-1 8s ease-in-out infinite; }
+.animate-shard-2 { animation: shard-fall-2 8s ease-in-out infinite; }
+.animate-shard-3 { animation: shard-fall-3 8s ease-in-out infinite; }
+.animate-shard-4 { animation: shard-fall-4 8s ease-in-out infinite; }
+.animate-shard-5 { animation: shard-fall-5 8s ease-in-out infinite; }
+.animate-shard-6 { animation: shard-fall-6 8s ease-in-out infinite; }
+.animate-shard-7 { animation: shard-fall-7 8s ease-in-out infinite; }
+.animate-shard-8 { animation: shard-fall-8 8s ease-in-out infinite; }
+.animate-shard-9 { animation: shard-fall-9 8s ease-in-out infinite; }
+.animate-shard-10 { animation: shard-fall-10 8s ease-in-out infinite; }
+
+/* Particle explosion animations */
+@keyframes particle-1 {
+  0%, 43% { opacity: 0; transform: translate(0, 0) scale(1); }
+  44% { opacity: 1; transform: translate(0, 0) scale(1); }
+  70% { opacity: 0.6; transform: translate(-60px, -40px) scale(0.5); }
+  85%, 100% { opacity: 0; transform: translate(-80px, -50px) scale(0); }
+}
+@keyframes particle-2 {
+  0%, 43% { opacity: 0; transform: translate(0, 0) scale(1); }
+  44% { opacity: 1; transform: translate(0, 0) scale(1); }
+  70% { opacity: 0.6; transform: translate(55px, -35px) scale(0.5); }
+  85%, 100% { opacity: 0; transform: translate(75px, -45px) scale(0); }
+}
+@keyframes particle-3 {
+  0%, 43% { opacity: 0; transform: translate(0, 0) scale(1); }
+  44% { opacity: 1; transform: translate(0, 0) scale(1); }
+  70% { opacity: 0.5; transform: translate(-45px, 50px) scale(0.4); }
+  85%, 100% { opacity: 0; transform: translate(-60px, 70px) scale(0); }
+}
+@keyframes particle-4 {
+  0%, 43% { opacity: 0; transform: translate(0, 0) scale(1); }
+  44% { opacity: 1; transform: translate(0, 0) scale(1); }
+  70% { opacity: 0.5; transform: translate(50px, 45px) scale(0.4); }
+  85%, 100% { opacity: 0; transform: translate(65px, 60px) scale(0); }
+}
+@keyframes particle-5 {
+  0%, 43% { opacity: 0; transform: translate(0, 0) scale(1); }
+  44.5% { opacity: 1; transform: translate(0, 0) scale(1); }
+  70% { opacity: 0.4; transform: translate(-70px, 10px) scale(0.3); }
+  85%, 100% { opacity: 0; transform: translate(-90px, 15px) scale(0); }
+}
+@keyframes particle-6 {
+  0%, 43% { opacity: 0; transform: translate(0, 0) scale(1); }
+  44.5% { opacity: 1; transform: translate(0, 0) scale(1); }
+  70% { opacity: 0.4; transform: translate(65px, 5px) scale(0.3); }
+  85%, 100% { opacity: 0; transform: translate(85px, 8px) scale(0); }
+}
+@keyframes particle-7 {
+  0%, 43% { opacity: 0; transform: translate(0, 0) scale(1); }
+  44.2% { opacity: 1; transform: translate(0, 0) scale(1); }
+  70% { opacity: 0.5; transform: translate(-30px, -55px) scale(0.3); }
+  85%, 100% { opacity: 0; transform: translate(-40px, -70px) scale(0); }
+}
+@keyframes particle-8 {
+  0%, 43% { opacity: 0; transform: translate(0, 0) scale(1); }
+  44.2% { opacity: 1; transform: translate(0, 0) scale(1); }
+  70% { opacity: 0.5; transform: translate(35px, -50px) scale(0.3); }
+  85%, 100% { opacity: 0; transform: translate(45px, -65px) scale(0); }
+}
+@keyframes particle-9 {
+  0%, 43% { opacity: 0; transform: translate(0, 0) scale(1); }
+  44.8% { opacity: 1; transform: translate(0, 0) scale(1); }
+  70% { opacity: 0.3; transform: translate(0px, -60px) scale(0.2); }
+  85%, 100% { opacity: 0; transform: translate(0px, -80px) scale(0); }
+}
+@keyframes particle-10 {
+  0%, 43% { opacity: 0; transform: translate(0, 0) scale(1); }
+  44.8% { opacity: 1; transform: translate(0, 0) scale(1); }
+  70% { opacity: 0.3; transform: translate(-15px, 65px) scale(0.2); }
+  85%, 100% { opacity: 0; transform: translate(-20px, 85px) scale(0); }
+}
+@keyframes particle-11 {
+  0%, 43% { opacity: 0; transform: translate(0, 0) scale(1); }
+  44.3% { opacity: 1; transform: translate(0, 0) scale(1); }
+  70% { opacity: 0.4; transform: translate(75px, -20px) scale(0.3); }
+  85%, 100% { opacity: 0; transform: translate(95px, -25px) scale(0); }
+}
+@keyframes particle-12 {
+  0%, 43% { opacity: 0; transform: translate(0, 0) scale(1); }
+  44.6% { opacity: 1; transform: translate(0, 0) scale(1); }
+  70% { opacity: 0.4; transform: translate(-55px, -25px) scale(0.35); }
+  85%, 100% { opacity: 0; transform: translate(-72px, -32px) scale(0); }
+}
+
+.animate-particle-1  { animation: particle-1  8s ease-out infinite; }
+.animate-particle-2  { animation: particle-2  8s ease-out infinite; }
+.animate-particle-3  { animation: particle-3  8s ease-out infinite; }
+.animate-particle-4  { animation: particle-4  8s ease-out infinite; }
+.animate-particle-5  { animation: particle-5  8s ease-out infinite; }
+.animate-particle-6  { animation: particle-6  8s ease-out infinite; }
+.animate-particle-7  { animation: particle-7  8s ease-out infinite; }
+.animate-particle-8  { animation: particle-8  8s ease-out infinite; }
+.animate-particle-9  { animation: particle-9  8s ease-out infinite; }
+.animate-particle-10 { animation: particle-10 8s ease-out infinite; }
+.animate-particle-11 { animation: particle-11 8s ease-out infinite; }
+.animate-particle-12 { animation: particle-12 8s ease-out infinite; }
+
+/* Shard shadow/glow effect */
+.shard-shadow {
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.4),
+    0 0 8px rgba(239, 68, 68, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+/* Shimmer/scan-line animation for the intact mockup */
+@keyframes shimmer-scan {
+  0% {
+    transform: translateY(-100%);
+  }
+  100% {
+    transform: translateY(400%);
+  }
+}
+
+.animate-shimmer-scan {
+  animation: shimmer-scan 4s linear infinite;
+}
+
+/* Pulsing glow behind demo mockups */
+@keyframes mockup-glow {
+  0%, 100% {
+    opacity: 0.3;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(1.05);
+  }
+}
+
+.animate-mockup-glow {
+  animation: mockup-glow 3s ease-in-out infinite;
+}
+
+/* Arrow pulse animation */
+@keyframes arrow-pulse {
+  0%, 100% {
+    opacity: 0.5;
+    transform: scale(1);
+    filter: drop-shadow(0 0 4px rgba(239, 68, 68, 0.3));
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.15);
+    filter: drop-shadow(0 0 12px rgba(239, 68, 68, 0.6));
+  }
+}
+
+.animate-arrow-pulse {
+  animation: arrow-pulse 2s ease-in-out infinite;
+}
+
+/* Ground line pulse */
+@keyframes ground-pulse {
+  0%, 100% {
+    opacity: 0.2;
+    box-shadow: 0 0 8px rgba(239, 68, 68, 0.1);
+  }
+  50% {
+    opacity: 0.5;
+    box-shadow: 0 0 16px rgba(239, 68, 68, 0.3);
+  }
+}
+
+.animate-ground-pulse {
+  animation: ground-pulse 3s ease-in-out infinite;
+}
 
 /* Floating animation for feature cards */
 @keyframes float {

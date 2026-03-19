@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <linearGradient id="s1-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ef4444"/>
+      <stop offset="100%" stop-color="#b91c1c"/>
+    </linearGradient>
+  </defs>
+  <!-- Top half of S, displaced up-left -->
+  <g transform="translate(-1.5, -1.5)">
+    <path d="M42 12 C42 12, 22 8, 18 16 C14 24, 28 28, 32 30"
+          stroke="url(#s1-grad)" stroke-width="7" stroke-linecap="round" fill="none"/>
+  </g>
+  <!-- Bottom half of S, displaced down-right -->
+  <g transform="translate(1.5, 1.5)">
+    <path d="M32 34 C36 36, 50 40, 46 48 C42 56, 22 52, 22 52"
+          stroke="url(#s1-grad)" stroke-width="7" stroke-linecap="round" fill="none"/>
+  </g>
+  <!-- Fracture line through center -->
+  <line x1="14" y1="38" x2="50" y2="26" stroke="#fff" stroke-width="1.2" opacity="0.7"/>
+  <line x1="26" y1="40" x2="20" y2="50" stroke="#fff" stroke-width="0.8" opacity="0.5"/>
+  <line x1="38" y1="24" x2="44" y2="14" stroke="#fff" stroke-width="0.8" opacity="0.5"/>
+  <!-- Small fragment chips -->
+  <polygon points="30,29 34,31 31,34" fill="#ef4444" opacity="0.6" transform="translate(6,6) rotate(25,32,32)"/>
+  <polygon points="33,30 35,28 36,32" fill="#ef4444" opacity="0.5" transform="translate(-5,-4) rotate(-15,32,32)"/>
+  <rect x="28" y="35" width="2" height="2" fill="#fff" opacity="0.4" transform="rotate(45,29,36)"/>
+</svg>
