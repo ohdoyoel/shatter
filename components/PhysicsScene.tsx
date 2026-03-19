@@ -10,13 +10,9 @@ export default function PhysicsScene({ data }: { data: CaptureResponse }) {
   const rafRef = useRef<number>(0);
   const physicsRef = useRef<any>(null);
   const shatteredRef = useRef(false);
-  const deviceGravityCleanupRef = useRef<(() => void) | null>(null);
   const deviceMotionCleanupRef = useRef<(() => void) | null>(null);
-  const desktopGravityCleanupRef = useRef<(() => void) | null>(null);
   const [shattered, setShattered] = useState(false);
   const [needsPermission, setNeedsPermission] = useState(false);
-  const [gravityOn, setGravityOn] = useState(false);
-  const [inertiaOn, setInertiaOn] = useState(true);
 
   // O(1) element lookup for animation loop (avoids O(n) find per body per frame)
   const elementMap = useMemo(
@@ -117,26 +113,12 @@ export default function PhysicsScene({ data }: { data: CaptureResponse }) {
 
       rafRef.current = requestAnimationFrame(updatePositions);
 
-      // Gravity input strategy:
-      // - iOS: zero gravity until permission granted, then sensor + motion.
-      // - Android: try sensor immediately; desktop gravity as fallback until sensor fires.
-      // - Desktop: keyboard + mouse-edge only.
+      // No gravity — only device motion inertia.
+      // iOS requires permission prompt for DeviceMotionEvent.
       if (physics.needsDeviceOrientationPermission()) {
-        world.engine.gravity.x = 0;
-        world.engine.gravity.y = 0;
         setNeedsPermission(true);
-      } else if (typeof window.DeviceOrientationEvent !== "undefined") {
-        desktopGravityCleanupRef.current = physics.startDesktopGravity(world);
-        deviceGravityCleanupRef.current = physics.startDeviceGravity(world, () => {
-          // Sensor active — stop desktop gravity fallback
-          if (desktopGravityCleanupRef.current) {
-            desktopGravityCleanupRef.current();
-            desktopGravityCleanupRef.current = null;
-          }
-        });
-        deviceMotionCleanupRef.current = physics.startDeviceMotion(world);
       } else {
-        desktopGravityCleanupRef.current = physics.startDesktopGravity(world);
+        deviceMotionCleanupRef.current = physics.startDeviceMotion(world);
       }
 
       // Shatter after a short delay to let elements render
@@ -160,14 +142,6 @@ export default function PhysicsScene({ data }: { data: CaptureResponse }) {
         deviceMotionCleanupRef.current();
         deviceMotionCleanupRef.current = null;
       }
-      if (deviceGravityCleanupRef.current) {
-        deviceGravityCleanupRef.current();
-        deviceGravityCleanupRef.current = null;
-      }
-      if (desktopGravityCleanupRef.current) {
-        desktopGravityCleanupRef.current();
-        desktopGravityCleanupRef.current = null;
-      }
       if (worldRef.current) {
         import("@/lib/physics").then((physics) => {
           if (worldRef.current) {
@@ -186,40 +160,10 @@ export default function PhysicsScene({ data }: { data: CaptureResponse }) {
 
     const granted = await physics.requestDeviceOrientationPermission();
     if (granted) {
-      if (desktopGravityCleanupRef.current) {
-        desktopGravityCleanupRef.current();
-        desktopGravityCleanupRef.current = null;
-      }
-      deviceGravityCleanupRef.current = physics.startDeviceGravity(world);
       deviceMotionCleanupRef.current = physics.startDeviceMotion(world);
       setNeedsPermission(false);
     }
   }, []);
-
-  // Toggle gravity on/off
-  useEffect(() => {
-    const world = worldRef.current;
-    if (!world) return;
-    const physics = physicsRef.current;
-    world.engine.gravity.scale = gravityOn && physics ? physics.GRAVITY_SCALE : 0;
-  }, [gravityOn]);
-
-  // Toggle inertia on/off
-  useEffect(() => {
-    const world = worldRef.current;
-    const physics = physicsRef.current;
-    if (!world || !physics) return;
-    if (inertiaOn) {
-      if (!deviceMotionCleanupRef.current) {
-        deviceMotionCleanupRef.current = physics.startDeviceMotion(world);
-      }
-    } else {
-      if (deviceMotionCleanupRef.current) {
-        deviceMotionCleanupRef.current();
-        deviceMotionCleanupRef.current = null;
-      }
-    }
-  }, [inertiaOn]);
 
   return (
     <div
@@ -246,32 +190,6 @@ export default function PhysicsScene({ data }: { data: CaptureResponse }) {
         >
           Tap to enable motion
         </button>
-      )}
-
-      {/* Toggle controls — bottom left */}
-      {shattered && (
-        <div className="fixed bottom-4 left-4 z-[9998] flex flex-col gap-2">
-          <button
-            onClick={() => setGravityOn((v) => !v)}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium backdrop-blur-sm transition-colors ${
-              gravityOn
-                ? "bg-white/80 text-black"
-                : "bg-black/50 text-white/70"
-            }`}
-          >
-            Gravity {gravityOn ? "ON" : "OFF"}
-          </button>
-          <button
-            onClick={() => setInertiaOn((v) => !v)}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium backdrop-blur-sm transition-colors ${
-              inertiaOn
-                ? "bg-white/80 text-black"
-                : "bg-black/50 text-white/70"
-            }`}
-          >
-            Inertia {inertiaOn ? "ON" : "OFF"}
-          </button>
-        </div>
       )}
 
       {/* Masks: appear on shatter to erase physics elements from background */}

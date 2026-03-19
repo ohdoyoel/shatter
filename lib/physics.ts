@@ -12,8 +12,6 @@ const {
   Runner,
 } = Matter;
 
-export const GRAVITY_SCALE = 0.005;
-
 export interface PhysicsWorld {
   engine: Matter.Engine;
   runner: Matter.Runner;
@@ -227,7 +225,7 @@ export function triggerShatter(world: PhysicsWorld): void {
   }
 }
 
-// --- Device sensor gravity ---
+// --- Device motion permission (iOS) ---
 
 export function needsDeviceOrientationPermission(): boolean {
   return (
@@ -253,55 +251,6 @@ export async function requestDeviceOrientationPermission(): Promise<boolean> {
   } catch {
     return false;
   }
-}
-
-/**
- * Start updating engine gravity based on device orientation sensors.
- * Uses a low-pass filter (EMA) so that:
- *  - Slow tilts smoothly change gravity direction
- *  - Fast shakes are filtered out (inertia of rest)
- * Returns a cleanup function to stop listening.
- */
-export function startDeviceGravity(
-  world: PhysicsWorld,
-  onActive?: () => void,
-): () => void {
-  let smoothX = 0;
-  let smoothY = 0;
-  let firstReading = true;
-  const ALPHA = 0.08; // lower = heavier feel / more inertia
-  const DEG = Math.PI / 180;
-
-  const handler = (event: DeviceOrientationEvent) => {
-    if (event.beta == null || event.gamma == null) return;
-
-    const gx = Math.sin(event.gamma * DEG);
-    const gy = Math.cos((event.beta - 90) * DEG);
-
-    const clampedGx = Math.max(-1, Math.min(1, gx));
-    const clampedGy = Math.max(-1, Math.min(1, gy));
-
-    if (firstReading) {
-      smoothX = clampedGx;
-      smoothY = clampedGy;
-      firstReading = false;
-      onActive?.();
-    } else {
-      smoothX += (clampedGx - smoothX) * ALPHA;
-      smoothY += (clampedGy - smoothY) * ALPHA;
-    }
-
-    world.engine.gravity.x = smoothX;
-    world.engine.gravity.y = smoothY;
-  };
-
-  window.addEventListener("deviceorientation", handler, true);
-
-  return () => {
-    window.removeEventListener("deviceorientation", handler, true);
-    world.engine.gravity.x = 0;
-    world.engine.gravity.y = 1;
-  };
 }
 
 /**
@@ -378,133 +327,6 @@ export function startDeviceMotion(
   return () => {
     window.removeEventListener("devicemotion", handler, true);
     Events.off(world.engine, "beforeUpdate", applyInertia);
-  };
-}
-
-/**
- * Combined desktop gravity controller: keyboard (arrow keys / WASD) + mouse-edge.
- * Keyboard takes priority when any key is held; mouse-edge provides subtle
- * passive gravity shifts otherwise. Uses a single rAF loop to avoid conflicts.
- * Returns a cleanup function.
- */
-export function startDesktopGravity(
-  world: PhysicsWorld,
-): () => void {
-  // --- Keyboard state ---
-  const keysHeld = new Set<string>();
-
-  // --- Mouse-edge state ---
-  let mouseEdgeX = 0;
-  let mouseEdgeY = 0;
-  const EDGE_ZONE = 0.15;
-  const MAX_SHIFT = 0.3;
-
-  // --- Shared smooth state ---
-  let smoothX = 0;
-  let smoothY = 1;
-  let animId = 0;
-  const KB_LERP = 0.06;
-  const MOUSE_LERP = 0.03;
-
-  function keyToDirection(key: string): string | null {
-    switch (key) {
-      case "ArrowLeft":
-      case "a":
-      case "A":
-        return "left";
-      case "ArrowRight":
-      case "d":
-      case "D":
-        return "right";
-      case "ArrowUp":
-      case "w":
-      case "W":
-        return "up";
-      case "ArrowDown":
-      case "s":
-      case "S":
-        return "down";
-      default:
-        return null;
-    }
-  }
-
-  const onKeyDown = (e: KeyboardEvent) => {
-    const dir = keyToDirection(e.key);
-    if (dir) {
-      e.preventDefault();
-      keysHeld.add(dir);
-    }
-  };
-
-  const onKeyUp = (e: KeyboardEvent) => {
-    const dir = keyToDirection(e.key);
-    if (dir) {
-      keysHeld.delete(dir);
-    }
-  };
-
-  const onMouseMove = (e: MouseEvent) => {
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-    const nx = (e.clientX / vw) * 2 - 1;
-    const ny = (e.clientY / vh) * 2 - 1;
-
-    const threshold = 1 - EDGE_ZONE * 2;
-    mouseEdgeX = Math.abs(nx) > threshold
-      ? Math.sign(nx) * ((Math.abs(nx) - threshold) / (EDGE_ZONE * 2)) * MAX_SHIFT
-      : 0;
-    mouseEdgeY = Math.abs(ny) > threshold
-      ? Math.sign(ny) * ((Math.abs(ny) - threshold) / (EDGE_ZONE * 2)) * MAX_SHIFT
-      : 0;
-  };
-
-  function tick() {
-    let targetX: number;
-    let targetY: number;
-    let lerpSpeed: number;
-
-    if (keysHeld.size > 0) {
-      targetX = 0;
-      targetY = 0;
-      if (keysHeld.has("left")) targetX -= 1;
-      if (keysHeld.has("right")) targetX += 1;
-      if (keysHeld.has("up")) targetY -= 1;
-      if (keysHeld.has("down")) targetY += 1;
-      const mag = Math.sqrt(targetX * targetX + targetY * targetY);
-      if (mag > 1) {
-        targetX /= mag;
-        targetY /= mag;
-      }
-      lerpSpeed = KB_LERP;
-    } else {
-      // No keyboard → settle back to default gravity (down)
-      targetX = mouseEdgeX;
-      targetY = 1 + mouseEdgeY;
-      lerpSpeed = MOUSE_LERP;
-    }
-
-    smoothX += (targetX - smoothX) * lerpSpeed;
-    smoothY += (targetY - smoothY) * lerpSpeed;
-
-    world.engine.gravity.x = smoothX;
-    world.engine.gravity.y = smoothY;
-
-    animId = requestAnimationFrame(tick);
-  }
-
-  window.addEventListener("keydown", onKeyDown);
-  window.addEventListener("keyup", onKeyUp);
-  window.addEventListener("mousemove", onMouseMove);
-  animId = requestAnimationFrame(tick);
-
-  return () => {
-    window.removeEventListener("keydown", onKeyDown);
-    window.removeEventListener("keyup", onKeyUp);
-    window.removeEventListener("mousemove", onMouseMove);
-    cancelAnimationFrame(animId);
-    world.engine.gravity.x = 0;
-    world.engine.gravity.y = 1;
   };
 }
 
